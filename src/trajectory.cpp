@@ -119,6 +119,86 @@ std::vector<int32_t> sort(std::vector<CartesianIndex> const &cart)
   return sorted;
 }
 
+BucketMapping Trajectory::bucketMapping(Index const bucketSize, Index const kw, float const os, Index const read0) const
+{
+  Index const kRad = kw / 2; // Radius to avoid at edge of grid
+  Index const gridSz = fft_size(info_.matrix.maxCoeff() * os);
+  Log::Print(FMT_STRING("Bucket mapping to grid size {}"), gridSz);
+
+  Sz3 const cartDims =
+    info_.type == Info::Type::ThreeD ? Sz3{gridSz, gridSz, gridSz} : Sz3{gridSz, gridSz, info_.matrix[2]};
+  Sz2 const noncartDims{info_.read_points, info_.spokes};
+  float const scale = sqrt(info_.type == Info::Type::ThreeD ? pow(os, 3) : pow(os, 2));
+  Eigen::ArrayXf frameWeights(info_.frames);
+
+  Log::Print("Init buckets");
+
+  Index const nbX = cartDims[0] / bucketSize;
+  Index const nbY = cartDims[1] / bucketSize;
+  Index const nbZ = cartDims[2] / bucketSize;
+  Index const nB = nbX * nbY * nbZ;
+  std::vector<Bucket> buckets;
+  buckets.reserve(nB);
+  for (Index iz = 0; iz < nbZ; iz++) {
+    for (Index iy = 0; iy < nbY; iy++) {
+      for (Index ix = 0; ix < nbX; ix++) {
+        buckets.push_back(Bucket{
+          Eigen::Array3l{ix * nbX, iy * nbY, iz * nbZ},
+          Eigen::Array3l{
+            std::max((ix + 1) * nbX, cartDims[0]),
+            std::max((iy + 1) * nbY, cartDims[1]),
+            std::max((iz + 1) * nbZ, cartDims[2])}});
+      }
+    }
+  }
+
+  Log::Print("Calculating mapping");
+  std::fesetround(FE_TONEAREST);
+  float const maxRad = (gridSz / 2) - 1.f;
+  Size3 const center(cartDims[0] / 2, cartDims[1] / 2, cartDims[2] / 2);
+  for (int32_t is = 0; is < info_.spokes; is++) {
+    auto const frame = frames_(is);
+    if ((frame >= 0) && (frame < info_.frames)) {
+      for (int16_t ir = read0; ir < info_.read_points; ir++) {
+        NoncartesianIndex const nc{.spoke = is, .read = ir};
+        Point3 const xyz = point(ir, is, maxRad);
+
+        Point3 const gp = nearby(xyz);
+        if (((gp.array().abs() + kRad) < maxRad).all()) {
+          Size3 const cart = center + Size3(gp.cast<int16_t>());
+          // Calculate bucket
+          Index const ix = cart[0] / bucketSize;
+          Index const iy = cart[1] / bucketSize;
+          Index const iz = cart[2] / bucketSize;
+          auto &b = buckets[ix + nbX * (iy + (nbY * iz))];
+          b.cart.push_back(CartesianIndex{cart(0), cart(1), cart(2)});
+          b.offset.push_back(xyz - gp.cast<float>().matrix());
+          b.noncart.push_back(nc);
+          b.frame.push_back(frame);
+          frameWeights[frame] += 1;
+        }
+      }
+    }
+  }
+
+  Log::Print("Removing empty buckets");
+
+  Index const eraseCount = std::erase_if(buckets, [](Bucket const &b) { return b.empty(); });
+
+  Log::Print("Removed {} empty buckets, {} remaining", eraseCount, buckets.size());
+  Log::Print("Total points {}", std::accumulate(buckets.begin(), buckets.end(), 0L, [](Index sum, Bucket const &b) {
+               return b.cart.size() + sum;
+             }));
+  return BucketMapping{
+    .type = info_.type,
+    .noncartDims = noncartDims,
+    .cartDims = cartDims,
+    .frames = int8_t(info_.frames),
+    .frameWeights = frameWeights,
+    .scale = scale,
+    .buckets = buckets};
+}
+
 Mapping Trajectory::mapping(Index const kw, float const os, Index const read0) const
 {
   Index const kRad = kw / 2; // Radius to avoid at edge of grid

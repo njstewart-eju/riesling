@@ -15,6 +15,31 @@ struct NoncartesianIndex
   int16_t read;
 };
 
+struct Bucket
+{
+  Eigen::Array3l minCorner, maxCorner;
+  std::vector<CartesianIndex> cart;
+  std::vector<Point3> offset;
+  std::vector<NoncartesianIndex> noncart;
+  std::vector<int8_t> frame;
+
+  bool empty() const
+  {
+    return cart.empty();
+  };
+};
+
+struct BucketMapping
+{
+  Info::Type type;
+  Sz2 noncartDims;
+  Sz3 cartDims;
+  int8_t frames;
+  Eigen::ArrayXf frameWeights;
+  float scale; // Overall scaling from oversampling
+  std::vector<Bucket> buckets;
+};
+
 struct Mapping
 {
   Info::Type type;
@@ -39,6 +64,7 @@ struct Trajectory
   R3 const &points() const;
   I1 const &frames() const;
   Point3 point(int16_t const read, int32_t const spoke, float const nomRad) const;
+  BucketMapping bucketMapping(Index const bucketSz, Index const kw, float const os, Index const read0 = 0) const;
   Mapping mapping(Index const kw, float const os, Index const read0 = 0) const;
   std::tuple<Trajectory, Index> downsample(float const res, Index const lores, bool const shrink) const;
 
