@@ -8,7 +8,7 @@
 
 #include <catch2/catch.hpp>
 
-Index const M = 32;
+Index const M = 64;
 Index const C = 8;
 Info const info{
   .type = Info::Type::ThreeD,
@@ -37,12 +37,12 @@ auto const fi5 = make_kernel("FI5", info.type, os);
 
 TEST_CASE("GridAdj")
 {
-  auto gridnn = make_grid(nn.get(), m1, false);
-  auto gridkb3 = make_grid(kb3.get(), m3, false);
-  auto gridkb5 = make_grid(kb5.get(), m5, false);
-  auto gridfi3 = make_grid(fi3.get(), m3, false);
-  auto gridfi5 = make_grid(fi5.get(), m5, false);
-  GridBucket<5, 5>>bucket(dynamic_cast<SizedKernel<5, 5> const *>(k), m, nC);
+  auto gridnn = make_grid(nn.get(), m1, C, false);
+  auto gridkb3 = make_grid(kb3.get(), m3, C, false);
+  auto gridkb5 = make_grid(kb5.get(), m5, C, false);
+  auto gridfi3 = make_grid(fi3.get(), m3, C, false);
+  auto gridfi5 = make_grid(fi5.get(), m5, C, false);
+  GridBucket<5, 5> bucket(dynamic_cast<SizedKernel<5, 5> const *>(fi5.get()), traj.bucketMapping(32, fi5.get(), os), C);
 
   Cx3 nc(gridnn->outputDimensions());
   nc.setRandom();
@@ -72,7 +72,7 @@ TEST_CASE("GridAdj")
     gridfi5->Adj(nc);
   };
 
-  BENCHMARK("Buckey FI5 Noncartesian->Cartesian")
+  BENCHMARK("Bucket FI5 Noncartesian->Cartesian")
   {
     bucket.Adj(nc);
   };
@@ -80,11 +80,11 @@ TEST_CASE("GridAdj")
 
 TEST_CASE("GridA")
 {
-  auto gridnn = make_grid(nn.get(), m1, false);
-  auto gridkb3 = make_grid(kb3.get(), m3, false);
-  auto gridkb5 = make_grid(kb5.get(), m5, false);
-  auto gridfi3 = make_grid(fi3.get(), m3, false);
-  auto gridfi5 = make_grid(fi5.get(), m5, false);
+  auto gridnn = make_grid(nn.get(), m1, C, false);
+  auto gridkb3 = make_grid(kb3.get(), m3, C, false);
+  auto gridkb5 = make_grid(kb5.get(), m5, C, false);
+  auto gridfi3 = make_grid(fi3.get(), m3, C, false);
+  auto gridfi5 = make_grid(fi5.get(), m5, C, false);
 
   Cx5 c(gridnn->inputDimensions());
 
@@ -120,11 +120,11 @@ TEST_CASE("GridBasisAdj")
   R2 basis(256, nB);
   basis.setConstant(1.f);
 
-  auto gridnn = make_grid_basis(nn.get(), m1, basis, false);
-  auto gridkb3 = make_grid_basis(kb3.get(), m3, basis, false);
-  auto gridkb5 = make_grid_basis(kb5.get(), m5, basis, false);
-  auto gridfi3 = make_grid_basis(fi3.get(), m3, basis, false);
-  auto gridfi5 = make_grid_basis(fi5.get(), m5, basis, false);
+  auto gridnn = make_grid_basis(nn.get(), m1, C, basis, false);
+  auto gridkb3 = make_grid_basis(kb3.get(), m3, C, basis, false);
+  auto gridkb5 = make_grid_basis(kb5.get(), m5, C, basis, false);
+  auto gridfi3 = make_grid_basis(fi3.get(), m3, C, basis, false);
+  auto gridfi5 = make_grid_basis(fi5.get(), m5, C, basis, false);
 
   Cx3 nc(gridnn->outputDimensions());
 
@@ -160,11 +160,11 @@ TEST_CASE("GridBasisA")
   R2 basis(256, nB);
   basis.setConstant(1.f);
 
-  auto gridnn = make_grid_basis(nn.get(), m1, basis, false);
-  auto gridkb3 = make_grid_basis(kb3.get(), m3, basis, false);
-  auto gridkb5 = make_grid_basis(kb5.get(), m5, basis, false);
-  auto gridfi3 = make_grid_basis(fi3.get(), m3, basis, false);
-  auto gridfi5 = make_grid_basis(fi5.get(), m5, basis, false);
+  auto gridnn = make_grid_basis(nn.get(), m1, C, basis, false);
+  auto gridkb3 = make_grid_basis(kb3.get(), m3, C, basis, false);
+  auto gridkb5 = make_grid_basis(kb5.get(), m5, C, basis, false);
+  auto gridfi3 = make_grid_basis(fi3.get(), m3, C, basis, false);
+  auto gridfi5 = make_grid_basis(fi5.get(), m5, C, basis, false);
 
   Cx5 c(gridnn->inputDimensions());
 

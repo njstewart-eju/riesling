@@ -166,7 +166,6 @@ struct GridBucket final : SizedBucketGrid<IP, TP>
     auto const &cdims = this->inputDimensions();
     Index const nC = cdims[0];
     Index const nF = cdims[1];
-    auto dev = Threads::GlobalDevice();
 
     std::mutex writeMutex;
     auto grid_task = [&](Index ib) {
@@ -176,10 +175,11 @@ struct GridBucket final : SizedBucketGrid<IP, TP>
       out.setZero();
 
       for (auto ii = 0; ii < bucket.size(); ii++) {
-        auto const c = bucket.cart[ii];
-        auto const n = bucket.noncart[ii];
-        auto const ifr = bucket.frame[ii];
-        auto const k = this->kernel_->k(bucket.offset[ii]);
+        auto const si = bucket.sortedIndices[ii];
+        auto const c = bucket.cart[si];
+        auto const n = bucket.noncart[si];
+        auto const k = this->kernel_->k(bucket.offset[si]);
+        auto const ifr = bucket.frame[si];
         auto const scale = this->mapping_.scale * (this->weightFrames_ ? this->mapping_.frameWeights[ifr] : 1.f);
 
         Index const stX = c.x - ((IP - 1) / 2) - bucket.minCorner[0];
@@ -215,7 +215,18 @@ struct GridBucket final : SizedBucketGrid<IP, TP>
 
       {
         std::scoped_lock lock(writeMutex);
-        this->ws_->slice(wsSt, sz).device(dev) += out.slice(outSt, sz);
+        // this->ws_->slice(wsSt, sz) += out.slice(outSt, sz);
+        for (Index iz = 0; iz < sz[4]; iz++) {
+          for (Index iy = 0; iy < sz[3]; iy++) {
+            for (Index ix = 0; ix < sz[2]; ix++) {
+              for (Index ifr = 0; ifr < sz[1]; ifr++) {
+                for (Index ic = 0; ic < nC; ic++) {
+                  this->ws_->operator()(ic, ifr, wsSt[2] + ix, wsSt[3] + iy, wsSt[4] + iz) += out(ic, ifr, outSt[2] + ix, outSt[3] + iy, outSt[4] + iz);
+                }
+              }
+            }
+          }
+        }
       }
     };
 

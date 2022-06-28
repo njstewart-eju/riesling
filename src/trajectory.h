@@ -20,6 +20,7 @@ struct Bucket
 {
   Sz3 minCorner, maxCorner;
   std::vector<CartesianIndex> cart;
+  std::vector<int32_t> sortedIndices;
   std::vector<Point3> offset;
   std::vector<NoncartesianIndex> noncart;
   std::vector<int8_t> frame;

@@ -133,9 +133,9 @@ Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const o
 
   Log::Print("Init buckets");
 
-  Index const nbX = cartDims[0] / bucketSize;
-  Index const nbY = cartDims[1] / bucketSize;
-  Index const nbZ = cartDims[2] / bucketSize;
+  Index const nbX = std::ceil(cartDims[0] / float(bucketSize));
+  Index const nbY = std::ceil(cartDims[1] / float(bucketSize));
+  Index const nbZ = std::ceil(cartDims[2] / float(bucketSize));
   Index const nB = nbX * nbY * nbZ;
   std::vector<Bucket> buckets;
   buckets.reserve(nB);
@@ -171,7 +171,8 @@ Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const o
           Index const ix = cart[0] / bucketSize;
           Index const iy = cart[1] / bucketSize;
           Index const iz = cart[2] / bucketSize;
-          auto &b = buckets[ix + nbX * (iy + (nbY * iz))];
+          Index const ib = ix + nbX * (iy + (nbY * iz));
+          auto &b = buckets[ib];
           b.cart.push_back(CartesianIndex{cart(0), cart(1), cart(2)});
           b.offset.push_back(xyz - gp.cast<float>().matrix());
           b.noncart.push_back(nc);
@@ -190,6 +191,14 @@ Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const o
   Log::Print("Total points {}", std::accumulate(buckets.begin(), buckets.end(), 0L, [](Index sum, Bucket const &b) {
                return b.cart.size() + sum;
              }));
+
+  frameWeights = frameWeights.maxCoeff() / frameWeights;
+  Log::Print(FMT_STRING("Frame weights: {}"), frameWeights.transpose());
+
+  for (auto &b : buckets) {
+    b.sortedIndices = sort(b.cart);
+  }
+
   return BucketMapping{
     .type = info_.type,
     .noncartDims = noncartDims,
