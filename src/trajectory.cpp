@@ -119,9 +119,9 @@ std::vector<int32_t> sort(std::vector<CartesianIndex> const &cart)
   return sorted;
 }
 
-BucketMapping Trajectory::bucketMapping(Index const bucketSize, Index const kw, float const os, Index const read0) const
+BucketMapping
+Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const os, Index const read0) const
 {
-  Index const kRad = kw / 2; // Radius to avoid at edge of grid
   Index const gridSz = fft_size(info_.matrix.maxCoeff() * os);
   Log::Print(FMT_STRING("Bucket mapping to grid size {}"), gridSz);
 
@@ -139,15 +139,17 @@ BucketMapping Trajectory::bucketMapping(Index const bucketSize, Index const kw, 
   Index const nB = nbX * nbY * nbZ;
   std::vector<Bucket> buckets;
   buckets.reserve(nB);
+  Index const IP = k->inPlane();
+  Index const TP = k->throughPlane();
   for (Index iz = 0; iz < nbZ; iz++) {
     for (Index iy = 0; iy < nbY; iy++) {
       for (Index ix = 0; ix < nbX; ix++) {
         buckets.push_back(Bucket{
-          Eigen::Array3l{ix * nbX, iy * nbY, iz * nbZ},
-          Eigen::Array3l{
-            std::max((ix + 1) * nbX, cartDims[0]),
-            std::max((iy + 1) * nbY, cartDims[1]),
-            std::max((iz + 1) * nbZ, cartDims[2])}});
+          Sz3{ix * bucketSize - (IP / 2), iy * bucketSize - (IP / 2), iz * bucketSize - (TP / 2)},
+          Sz3{
+            std::min((ix + 1) * bucketSize, cartDims[0]) + (IP / 2),
+            std::min((iy + 1) * bucketSize, cartDims[1]) + (IP / 2),
+            std::min((iz + 1) * bucketSize, cartDims[2]) + (TP / 2)}});
       }
     }
   }
@@ -162,9 +164,8 @@ BucketMapping Trajectory::bucketMapping(Index const bucketSize, Index const kw, 
       for (int16_t ir = read0; ir < info_.read_points; ir++) {
         NoncartesianIndex const nc{.spoke = is, .read = ir};
         Point3 const xyz = point(ir, is, maxRad);
-
-        Point3 const gp = nearby(xyz);
-        if (((gp.array().abs() + kRad) < maxRad).all()) {
+        if (xyz.array().isFinite().all()) { // Allow for NaNs in trajectory for blanking
+          Point3 const gp = nearby(xyz);
           Size3 const cart = center + Size3(gp.cast<int16_t>());
           // Calculate bucket
           Index const ix = cart[0] / bucketSize;

@@ -13,6 +13,7 @@ int main_grid(args::Subparser &parser)
   CoreOpts core(parser);
   SDC::Opts sdcOpts(parser);
   args::Flag fwd(parser, "", "Apply forward operation", {'f', "fwd"});
+  args::Flag bucket(parser, "", "Use bucket gridder", {"bucket"});
   ParseCommand(parser, core.iname);
   HD5::RieslingReader reader(core.iname.Get());
   auto const traj = reader.trajectory();
@@ -31,6 +32,13 @@ int main_grid(args::Subparser &parser)
       Cx4(rad_ks.reshape(Sz4{rad_ks.dimension(0), rad_ks.dimension(1), rad_ks.dimension(2), 1})),
       HD5::Keys::Noncartesian);
     Log::Print(FMT_STRING("Wrote non-cartesian k-space. Took {}"), Log::ToNow(start));
+  } else if (bucket) {
+    auto const bucketMapping = traj.bucketMapping(8, kernel.get(), core.osamp.Get());
+    auto bgrid = make_grid_bucket(kernel.get(), bucketMapping, info.channels);
+    auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
+    writer.writeTensor(bgrid->Adj(sdc->Adj(reader.noncartesian(0))), HD5::Keys::Cartesian);
+    Log::Print(FMT_STRING("Wrote cartesian k-space. Took {}"), Log::ToNow(start));
+
   } else {
     auto const sdc = SDC::Choose(sdcOpts, traj, core.osamp.Get());
     writer.writeTensor(gridder->Adj(sdc->Adj(reader.noncartesian(0))), HD5::Keys::Cartesian);

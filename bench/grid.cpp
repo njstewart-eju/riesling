@@ -4,6 +4,8 @@
 #include "../src/op/grids.h"
 #include "../src/traj_spirals.h"
 
+#include "../src/op/grid-bucket.hpp"
+
 #include <catch2/catch.hpp>
 
 Index const M = 32;
@@ -40,32 +42,39 @@ TEST_CASE("GridAdj")
   auto gridkb5 = make_grid(kb5.get(), m5, false);
   auto gridfi3 = make_grid(fi3.get(), m3, false);
   auto gridfi5 = make_grid(fi5.get(), m5, false);
+  GridBucket<5, 5>>bucket(dynamic_cast<SizedKernel<5, 5> const *>(k), m, nC);
 
   Cx3 nc(gridnn->outputDimensions());
+  nc.setRandom();
 
-  BENCHMARK("NN Noncartesian->Cartesian")
-  {
-    gridnn->Adj(nc);
-  };
+  // BENCHMARK("NN Noncartesian->Cartesian")
+  // {
+  //   gridnn->Adj(nc);
+  // };
 
-  BENCHMARK("KB3 Noncartesian->Cartesian")
-  {
-    gridkb3->Adj(nc);
-  };
+  // BENCHMARK("KB3 Noncartesian->Cartesian")
+  // {
+  //   gridkb3->Adj(nc);
+  // };
 
-  BENCHMARK("KB5 Noncartesian->Cartesian")
-  {
-    gridkb5->Adj(nc);
-  };
+  // BENCHMARK("KB5 Noncartesian->Cartesian")
+  // {
+  //   gridkb5->Adj(nc);
+  // };
 
-  BENCHMARK("FI3 Noncartesian->Cartesian")
-  {
-    gridfi3->Adj(nc);
-  };
+  // BENCHMARK("FI3 Noncartesian->Cartesian")
+  // {
+  //   gridfi3->Adj(nc);
+  // };
 
   BENCHMARK("FI5 Noncartesian->Cartesian")
   {
     gridfi5->Adj(nc);
+  };
+
+  BENCHMARK("Buckey FI5 Noncartesian->Cartesian")
+  {
+    bucket.Adj(nc);
   };
 }
 
