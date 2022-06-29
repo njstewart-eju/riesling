@@ -154,30 +154,41 @@ Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const o
     }
   }
 
+  std::vector<CartesianIndex> cart;
+  std::vector<NoncartesianIndex> noncart;
+  std::vector<int8_t> frame;
+  std::vector<Point3> offset;
+  std::vector<int32_t> sortedIndices;
+
   Log::Print("Calculating mapping");
   std::fesetround(FE_TONEAREST);
   float const maxRad = (gridSz / 2) - 1.f;
   Size3 const center(cartDims[0] / 2, cartDims[1] / 2, cartDims[2] / 2);
+  int32_t index = 0;
   for (int32_t is = 0; is < info_.spokes; is++) {
-    auto const frame = frames_(is);
-    if ((frame >= 0) && (frame < info_.frames)) {
+    auto const fr = frames_(is);
+    if ((fr >= 0) && (fr < info_.frames)) {
       for (int16_t ir = read0; ir < info_.read_points; ir++) {
         NoncartesianIndex const nc{.spoke = is, .read = ir};
         Point3 const xyz = point(ir, is, maxRad);
         if (xyz.array().isFinite().all()) { // Allow for NaNs in trajectory for blanking
           Point3 const gp = nearby(xyz);
-          Size3 const cart = center + Size3(gp.cast<int16_t>());
+          Size3 const ijk = center + Size3(gp.cast<int16_t>());
+          auto const off = xyz - gp.cast<float>().matrix();
+
+          cart.push_back(CartesianIndex{ijk(0), ijk(1), ijk(2)});
+          offset.push_back(off);
+          noncart.push_back(nc);
+          frame.push_back(fr);
+
           // Calculate bucket
-          Index const ix = cart[0] / bucketSize;
-          Index const iy = cart[1] / bucketSize;
-          Index const iz = cart[2] / bucketSize;
+          Index const ix = ijk[0] / bucketSize;
+          Index const iy = ijk[1] / bucketSize;
+          Index const iz = ijk[2] / bucketSize;
           Index const ib = ix + nbX * (iy + (nbY * iz));
-          auto &b = buckets[ib];
-          b.cart.push_back(CartesianIndex{cart(0), cart(1), cart(2)});
-          b.offset.push_back(xyz - gp.cast<float>().matrix());
-          b.noncart.push_back(nc);
-          b.frame.push_back(frame);
-          frameWeights[frame] += 1;
+          buckets[ib].indices.push_back(index);
+          frameWeights[fr] += 1;
+          index++;
         }
       }
     }
@@ -189,15 +200,12 @@ Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const o
 
   Log::Print("Removed {} empty buckets, {} remaining", eraseCount, buckets.size());
   Log::Print("Total points {}", std::accumulate(buckets.begin(), buckets.end(), 0L, [](Index sum, Bucket const &b) {
-               return b.cart.size() + sum;
+               return b.indices.size() + sum;
              }));
 
   frameWeights = frameWeights.maxCoeff() / frameWeights;
   Log::Print(FMT_STRING("Frame weights: {}"), frameWeights.transpose());
-
-  for (auto &b : buckets) {
-    b.sortedIndices = sort(b.cart);
-  }
+  auto const sorted = sort(cart);
 
   return BucketMapping{
     .type = info_.type,
@@ -206,6 +214,11 @@ Trajectory::bucketMapping(Index const bucketSize, Kernel const *k, float const o
     .frames = int8_t(info_.frames),
     .frameWeights = frameWeights,
     .scale = scale,
+    .cart = cart,
+    .noncart = noncart,
+    .frame = frame,
+    .offset = offset,
+    .sortedIndices = sorted,
     .buckets = buckets};
 }
 

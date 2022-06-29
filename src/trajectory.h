@@ -19,19 +19,15 @@ struct NoncartesianIndex
 struct Bucket
 {
   Sz3 minCorner, maxCorner;
-  std::vector<CartesianIndex> cart;
-  std::vector<int32_t> sortedIndices;
-  std::vector<Point3> offset;
-  std::vector<NoncartesianIndex> noncart;
-  std::vector<int8_t> frame;
+  std::vector<int32_t> indices;
 
   bool empty() const
   {
-    return cart.empty();
+    return indices.empty();
   };
 
   Index const size() const {
-    return cart.size();
+    return indices.size();
   }
 
   Sz3 gridSize() const
@@ -52,6 +48,12 @@ struct BucketMapping
   Eigen::ArrayXf frameWeights;
   float scale; // Overall scaling from oversampling
   std::vector<Bucket> buckets;
+
+  std::vector<CartesianIndex> cart;
+  std::vector<NoncartesianIndex> noncart;
+  std::vector<int8_t> frame;
+  std::vector<Point3> offset;
+  std::vector<int32_t> sortedIndices;
 
   Index const size() const {
     return buckets.size();
