@@ -3,6 +3,16 @@
 #include "grid-base.hpp"
 #include <mutex>
 
+inline Index Reflect(Index const ii, Index const sz)
+{
+  if (ii < 0)
+    return sz + ii;
+  else if (ii >= sz)
+    return ii - sz;
+  else
+    return ii;
+}
+
 template <int IP, int TP>
 struct Grid final : SizedGrid<IP, TP>
 {
@@ -47,28 +57,22 @@ struct Grid final : SizedGrid<IP, TP>
       Cx1 sum(nC);
       sum.setZero();
       for (Index iz = 0; iz < TP; iz++) {
-        Index const iiz = stZ + iz;
-        if ((iiz > -1) && (iiz < cdims[4])) {
-          for (Index iy = 0; iy < IP; iy++) {
-            Index const iiy = stY + iy;
-            if ((iiy > -1) && (iiy < cdims[3])) {
-              for (Index ix = 0; ix < IP; ix++) {
-                Index const iix = stX + ix;
-                if ((iix > -1) && (iix < cdims[2])) {
-                  float const kval = k(ix, iy, iz) * scale;
-                  if (basis_.size()) {
-                    for (Index ib = 0; ib < nB; ib++) {
-                      float const bval = basis_(btp, ib) * kval;
-                      for (Index ic = 0; ic < nC; ic++) {
-                        sum(ic) += cart(ic, ib, iix, iiy, iiz) * bval;
-                      }
-                    }
-                  } else {
-                    for (Index ic = 0; ic < nC; ic++) {
-                      sum(ic) += cart(ic, ifr, iix, iiy, iiz) * kval;
-                    }
-                  }
+        Index const iiz = Reflect(stZ + iz, cdims[4]);
+        for (Index iy = 0; iy < IP; iy++) {
+          Index const iiy = Reflect(stY + iy, cdims[3]);
+          for (Index ix = 0; ix < IP; ix++) {
+            Index const iix = Reflect(stX + ix, cdims[2]);
+            float const kval = k(ix, iy, iz) * scale;
+            if (basis_.size()) {
+              for (Index ib = 0; ib < nB; ib++) {
+                float const bval = basis_(btp, ib) * kval;
+                for (Index ic = 0; ic < nC; ic++) {
+                  sum(ic) += cart(ic, ib, iix, iiy, iiz) * bval;
                 }
+              }
+            } else {
+              for (Index ic = 0; ic < nC; ic++) {
+                sum(ic) += cart(ic, ifr, iix, iiy, iiz) * kval;
               }
             }
           }
@@ -136,34 +140,17 @@ struct Grid final : SizedGrid<IP, TP>
         }
       }
 
-      auto sz = out.dimensions();
-      // Adjust for edge of grid
-      sz[2] -= -std::min(bucket.minCorner[0], 0L);
-      sz[3] -= -std::min(bucket.minCorner[1], 0L);
-      sz[4] -= -std::min(bucket.minCorner[2], 0L);
-
-      sz[2] -= std::max(bucket.maxCorner[0] - cdims[2], 0L);
-      sz[3] -= std::max(bucket.maxCorner[1] - cdims[3], 0L);
-      sz[4] -= std::max(bucket.maxCorner[2] - cdims[4], 0L);
-
-      Sz5 wsSt{
-        0, 0, std::max(bucket.minCorner[0], 0L), std::max(bucket.minCorner[1], 0L), std::max(bucket.minCorner[2], 0L)};
-      Sz5 outSt{
-        0,
-        0,
-        -std::min(bucket.minCorner[0], 0L),
-        -std::min(bucket.minCorner[1], 0L),
-        -std::min(bucket.minCorner[2], 0L)};
-
       {
         std::scoped_lock lock(writeMutex);
-        for (Index iz = 0; iz < sz[4]; iz++) {
-          for (Index iy = 0; iy < sz[3]; iy++) {
-            for (Index ix = 0; ix < sz[2]; ix++) {
-              for (Index ifr = 0; ifr < sz[1]; ifr++) {
+        for (Index iz = 0; iz < bSz[2]; iz++) {
+          Index const iiz = Reflect(bucket.minCorner[2] + iz, cdims[4]);
+          for (Index iy = 0; iy < bSz[1]; iy++) {
+            Index const iiy = Reflect(bucket.minCorner[1] + iy, cdims[3]);
+            for (Index ix = 0; ix < bSz[0]; ix++) {
+              Index const iix = Reflect(bucket.minCorner[0] + ix, cdims[2]);
+              for (Index ifr = 0; ifr < nB; ifr++) {
                 for (Index ic = 0; ic < nC; ic++) {
-                  this->ws_->operator()(ic, ifr, wsSt[2] + ix, wsSt[3] + iy, wsSt[4] + iz) +=
-                    out(ic, ifr, outSt[2] + ix, outSt[3] + iy, outSt[4] + iz);
+                  this->ws_->operator()(ic, ifr, iix, iiy, iiz) += out(ic, ifr, ix, iy, iz);
                 }
               }
             }

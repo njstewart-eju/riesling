@@ -21,20 +21,9 @@ struct Bucket
   Sz3 minCorner, maxCorner;
   std::vector<int32_t> indices;
 
-  bool empty() const
-  {
-    return indices.empty();
-  };
-
-  Index const size() const
-  {
-    return indices.size();
-  }
-
-  Sz3 gridSize() const
-  {
-    return Sz3{maxCorner[0] - minCorner[0], maxCorner[1] - minCorner[1], maxCorner[2] - minCorner[2]};
-  }
+  bool empty() const;
+  Index size() const;
+  Sz3 gridSize() const;
 };
 
 struct Mapping

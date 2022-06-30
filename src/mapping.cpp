@@ -3,6 +3,21 @@
 #include <cfenv>
 #include <cmath>
 
+bool Bucket::empty() const
+{
+  return indices.empty();
+};
+
+Index Bucket::size() const
+{
+  return indices.size();
+}
+
+Sz3 Bucket::gridSize() const
+{
+  return Sz3{maxCorner[0] - minCorner[0], maxCorner[1] - minCorner[1], maxCorner[2] - minCorner[2]};
+}
+
 // Helper function to convert a floating-point vector-like expression to integer values
 template <typename T>
 inline decltype(auto) nearby(T &&x)
@@ -44,10 +59,7 @@ Mapping::Mapping(Trajectory const &traj, Kernel const *k, float const os, Index 
       for (Index ix = 0; ix < nbX; ix++) {
         buckets.push_back(Bucket{
           Sz3{ix * bucketSz - (IP / 2), iy * bucketSz - (IP / 2), iz * bucketSz - (TP / 2)},
-          Sz3{
-            std::min((ix + 1) * bucketSz, cartDims[0]) + (IP / 2),
-            std::min((iy + 1) * bucketSz, cartDims[1]) + (IP / 2),
-            std::min((iz + 1) * bucketSz, cartDims[2]) + (TP / 2)}});
+          Sz3{std::min((ix + 1) * bucketSz, cartDims[0]) + (IP / 2), std::min((iy + 1) * bucketSz, cartDims[1]) + (IP / 2), std::min((iz + 1) * bucketSz, cartDims[2]) + (TP / 2)}});
       }
     }
   }
