@@ -42,4 +42,5 @@ struct Mapping
   std::vector<int8_t> frame;
   std::vector<Point3> offset;
   std::vector<Bucket> buckets;
+  std::vector<int32_t> sortedIndices;
 };

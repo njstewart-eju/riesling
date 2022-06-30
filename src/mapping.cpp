@@ -35,6 +35,21 @@ inline Index fft_size(float const x)
   }
 }
 
+// Helper function to sort the cartesian indices
+std::vector<int32_t> sort(std::vector<CartesianIndex> const &cart)
+{
+  auto const start = Log::Now();
+  std::vector<int32_t> sorted(cart.size());
+  std::iota(sorted.begin(), sorted.end(), 0);
+  std::sort(sorted.begin(), sorted.end(), [&](Index const a, Index const b) {
+    auto const &ac = cart[a];
+    auto const &bc = cart[b];
+    return (ac.z < bc.z) || ((ac.z == bc.z) && ((ac.y < bc.y) || ((ac.y == bc.y) && (ac.x < bc.x))));
+  });
+  Log::Debug(FMT_STRING("Grid co-ord sorting: {}"), Log::ToNow(start));
+  return sorted;
+}
+
 Mapping::Mapping(Trajectory const &traj, Kernel const *k, float const os, Index const bucketSz, Index const read0)
 {
   Info const &info = traj.info();
@@ -98,14 +113,13 @@ Mapping::Mapping(Trajectory const &traj, Kernel const *k, float const os, Index 
     }
   }
 
-  Log::Print("Removing empty buckets");
-
   Index const eraseCount = std::erase_if(buckets, [](Bucket const &b) { return b.empty(); });
 
   Log::Print("Removed {} empty buckets, {} remaining", eraseCount, buckets.size());
   Log::Print("Total points {}", std::accumulate(buckets.begin(), buckets.end(), 0L, [](Index sum, Bucket const &b) {
                return b.indices.size() + sum;
              }));
+  sortedIndices = sort(cart);
 
   frameWeights = frameWeights.maxCoeff() / frameWeights;
   Log::Print(FMT_STRING("Frame weights: {}"), frameWeights.transpose());

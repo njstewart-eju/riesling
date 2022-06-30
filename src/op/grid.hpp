@@ -42,13 +42,15 @@ struct Grid final : SizedGrid<IP, TP>
     auto const &cdims = this->inputDimensions();
     Index const nC = cdims[0];
     Index const nB = cdims[1];
-    auto const scale = this->mapping_.scale;
+    auto const &map = this->mapping_;
+    auto const scale = map.scale;
 
     auto grid_task = [&](Index const ii) {
-      auto const c = this->mapping_.cart[ii];
-      auto const n = this->mapping_.noncart[ii];
-      auto const ifr = this->mapping_.frame[ii];
-      auto const k = this->kernel_->k(this->mapping_.offset[ii]);
+      auto const si = map.sortedIndices[ii];
+      auto const c = map.cart[si];
+      auto const n = map.noncart[si];
+      auto const ifr = map.frame[si];
+      auto const k = this->kernel_->k(map.offset[si]);
 
       Index const stX = c.x - ((IP - 1) / 2);
       Index const stY = c.y - ((IP - 1) / 2);
@@ -81,7 +83,7 @@ struct Grid final : SizedGrid<IP, TP>
       noncart.chip(n.spoke, 2).chip(n.read, 1) = sum;
     };
 
-    Threads::For(grid_task, this->mapping_.cart.size(), "Grid Forward");
+    Threads::For(grid_task, map.cart.size(), "Grid Forward");
     return noncart;
   }
 
